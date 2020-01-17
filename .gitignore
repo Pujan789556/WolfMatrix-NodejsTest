@@ -5,4 +5,4 @@
 /uploads
 
 #Ignore package-lock.json file
-./package-lock.json
+package-lock.json
