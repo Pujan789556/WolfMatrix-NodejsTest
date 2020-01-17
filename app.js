@@ -6,6 +6,8 @@ var xlstojson = require("xls-to-json-lc");
 var xlsxtojson = require("xlsx-to-json-lc");
 app.use(bodyParser.json());
 
+const fs = require('fs');
+
 //Disk Storage configuration for multer
 var storage = multer.diskStorage({
     destination: function(req, file, cb) {
@@ -88,9 +90,19 @@ app.post('/upload', function(req, res) {
                 lowerCaseHeaders: true
             }, function(err, result) {
                 if (err) {
-                    return res.json({ error_code: 1, err_desc: err, data: null });
+                    res.json({ error_code: 1, err_desc: err, data: null });
+                    return 
                 }
-                res.json(formatJson(result));
+                let jsonToWrite = JSON.stringify(formatJson(result),null, 2); //Serialie JSON String to redable form
+                
+                //Write formatted json to file data.json 
+                fs.writeFile('data.json', jsonToWrite, (err) =>{
+                	if(err){
+                		res.json({error_code: 1, err_desc: err});
+                		return;
+                	}
+                	res.json({error_code: 0, desc: "JSON file written success!!"})
+                })
             });
         } catch (e) {
             res.json({ error_code: 1, err_desc: "Corupted excel file" });
