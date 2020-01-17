@@ -51,7 +51,7 @@ const formatJson = (jsonData) => {
 				sub_dt['values'] = [];
 				let innerdata = {};
 				innerdata['date'] = sub_key[1];
-				innerdata['value'] = data[key];
+				innerdata['value'] = parseInt(data[key]);
 				sub_dt['values'].push(innerdata);
 				dt['values'].push(sub_dt);
 			}
