@@ -11,7 +11,7 @@ const fs = require('fs');
 //Disk Storage configuration for multer
 var storage = multer.diskStorage({
     destination: function(req, file, cb) {
-        cb(null, './uploads/')
+        cb(null, './')
     },
     filename: function(req, file, cb) {
         let datetimestamp = Date.now();
@@ -106,6 +106,13 @@ app.post('/upload', function(req, res) {
             });
         } catch (e) {
             res.json({ error_code: 1, err_desc: "Corupted excel file" });
+        }
+
+        //Delete the file after conversion success or failed
+        try{
+        	fs.unlinkSync(req.file.path);
+        } catch(e){
+        	console.log("Couldn't delete the file");
         }
     })
 });
