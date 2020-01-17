@@ -44,11 +44,11 @@ const formatJson = (jsonData) => {
         dt['values'] = [];
         Object.keys(data).forEach(key => {
             if (!key.includes('|')) {
-                dt[key] = data[key];
+                dt[key.toLowerCase()] = data[key];
             } else {
                 let sub_key = key.split('|', 2);
                 let sub_dt = {};
-                sub_dt['keyFigure'] = sub_key[0].toUpperCase(); //Uppercase the keyFigure value
+                sub_dt['keyFigure'] = sub_key[0].charAt(0).toUpperCase() + sub_key[0].slice(1); //Uppercase the keyFigure value
                 sub_dt['values'] = [];
                 let innerdata = {};
                 innerdata['date'] = sub_key[1];
@@ -131,6 +131,16 @@ app.post('/upload', function(req, res) {
             console.log("Couldn't delete the file");
         }
     })
+});
+
+//API Endpoint to get data
+app.get('/api/data', function(req, res) {
+    fs.readFile('data.json', (err, data) => {
+        if (err) {
+        	res.json({error_code: 1, err_desc: err})
+        }
+        res.json(JSON.parse(data));
+    });
 });
 
 app.get('/', function(req, res) {
