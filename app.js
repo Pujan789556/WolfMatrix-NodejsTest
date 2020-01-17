@@ -29,6 +29,35 @@ var upload = multer({
     }
 }).single('file');
 
+/**
+ * Format JSON transformed excel/csv.
+ * @param {json} jsonData The jsonData from excel/csv to be transformed.
+ * @return {json} Formatted JSON.
+ */
+const formatJson = (jsonData) => {
+	let formattedData = [];
+	jsonData.map(function(data,index){
+		let dt = {}
+		dt['values'] = [];
+		Object.keys(data).forEach(key => {
+			if(!key.includes('|')){
+				dt[key] = data[key];
+			}else{
+				let sub_key = key.split('|',2);
+				let sub_dt = {};
+				sub_dt['keyFigure'] = sub_key[0].toUpperCase(); //Uppercase the keyFigure value
+				sub_dt['values'] = [];
+				let innerdata = {};
+				innerdata['date'] = sub_key[1];
+				innerdata['value'] = data[key];
+				sub_dt['values'].push(innerdata);
+				dt['values'].push(sub_dt);
+			}
+		});
+		formattedData.push(dt);
+	});
+	return formattedData;
+}
 
 //API endpoint to upload file
 app.post('/upload', function(req, res) {
@@ -61,7 +90,7 @@ app.post('/upload', function(req, res) {
                 if (err) {
                     return res.json({ error_code: 1, err_desc: err, data: null });
                 }
-                res.json({ error_code: 0, err_desc: null, data: result });
+                res.json(formatJson(result));
             });
         } catch (e) {
             res.json({ error_code: 1, err_desc: "Corupted excel file" });
