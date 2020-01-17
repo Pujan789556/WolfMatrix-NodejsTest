@@ -4,6 +4,7 @@ var bodyParser = require('body-parser');
 var multer = require('multer');
 var xlstojson = require("xls-to-json-lc");
 var xlsxtojson = require("xlsx-to-json-lc");
+var csvToJson = require('convert-csv-to-json');
 app.use(bodyParser.json());
 
 const fs = require('fs');
@@ -24,7 +25,7 @@ var upload = multer({
     storage: storage,
     //Filter to accept excel and csv file
     fileFilter: function(req, file, callback) {
-        if (['xls', 'xlsx'].indexOf(file.originalname.split('.')[file.originalname.split('.').length - 1]) === -1) {
+        if (['xls', 'xlsx', 'csv'].indexOf(file.originalname.split('.')[file.originalname.split('.').length - 1]) === -1) {
             return callback(new Error('Wrong extension type. Only xls,xlsx and csv are accepted.').message);
         }
         callback(null, true);
@@ -37,28 +38,28 @@ var upload = multer({
  * @return {json} Formatted JSON.
  */
 const formatJson = (jsonData) => {
-	let formattedData = [];
-	jsonData.map(function(data,index){
-		let dt = {}
-		dt['values'] = [];
-		Object.keys(data).forEach(key => {
-			if(!key.includes('|')){
-				dt[key] = data[key];
-			}else{
-				let sub_key = key.split('|',2);
-				let sub_dt = {};
-				sub_dt['keyFigure'] = sub_key[0].toUpperCase(); //Uppercase the keyFigure value
-				sub_dt['values'] = [];
-				let innerdata = {};
-				innerdata['date'] = sub_key[1];
-				innerdata['value'] = parseInt(data[key]);
-				sub_dt['values'].push(innerdata);
-				dt['values'].push(sub_dt);
-			}
-		});
-		formattedData.push(dt);
-	});
-	return formattedData;
+    let formattedData = [];
+    jsonData.map(function(data, index) {
+        let dt = {}
+        dt['values'] = [];
+        Object.keys(data).forEach(key => {
+            if (!key.includes('|')) {
+                dt[key] = data[key];
+            } else {
+                let sub_key = key.split('|', 2);
+                let sub_dt = {};
+                sub_dt['keyFigure'] = sub_key[0].toUpperCase(); //Uppercase the keyFigure value
+                sub_dt['values'] = [];
+                let innerdata = {};
+                innerdata['date'] = sub_key[1];
+                innerdata['value'] = parseInt(data[key]);
+                sub_dt['values'].push(innerdata);
+                dt['values'].push(sub_dt);
+            }
+        });
+        formattedData.push(dt);
+    });
+    return formattedData;
 }
 
 //API endpoint to upload file
@@ -77,42 +78,57 @@ app.post('/upload', function(req, res) {
         /** Check extension of the file 
          * Use appropriate module to convert the file
          */
-        if (req.file.originalname.split('.')[req.file.originalname.split('.').length - 1] === 'xlsx') {
-            exceltojson = xlsxtojson;
+        if (req.file.originalname.split('.')[req.file.originalname.split('.').length - 1] === 'xlsx' || req.file.originalname.split('.')[req.file.originalname.split('.').length - 1] === 'xls') {
+            if (req.file.originalname.split('.')[req.file.originalname.split('.').length - 1] === 'xlsx') {
+                exceltojson = xlsxtojson;
+            } else {
+                exceltojson = xlstojson;
+            }
+
+            try {
+                exceltojson({
+                    input: req.file.path, //the same path where we uploaded our file
+                    output: null, //since we don't need output.json
+                    lowerCaseHeaders: true
+                }, function(err, result) {
+                    if (err) {
+                        res.json({ error_code: 1, err_desc: err, data: null });
+                        return
+                    }
+                    let jsonToWrite = JSON.stringify(formatJson(result), null, 2); //Serialize JSON String to redable form
+
+                    //Write formatted json to file data.json 
+                    fs.writeFile('data.json', jsonToWrite, (err) => {
+                        if (err) {
+                            res.json({ error_code: 1, err_desc: err });
+                            return;
+                        }
+                        res.json({ error_code: 0, desc: "JSON file written success!!" })
+                    })
+
+                });
+            } catch (e) {
+                res.json({ error_code: 1, err_desc: "Corupted excel file" });
+            }
         } else {
-            exceltojson = xlstojson;
+            let result = csvToJson.fieldDelimiter(',').getJsonFromCsv(req.file.path);
+            let jsonToWrite = JSON.stringify(formatJson(result), null, 2); //Serialize JSON String to redable form
+            //Write formatted json to file data.json 
+            fs.writeFile('data.json', jsonToWrite, (err) => {
+                if (err) {
+                    res.json({ error_code: 1, err_desc: err });
+                    return;
+                }
+                res.json({ error_code: 0, desc: "JSON file written success!!" })
+            })
         }
 
-        try {
-            exceltojson({
-                input: req.file.path, //the same path where we uploaded our file
-                output: null, //since we don't need output.json
-                lowerCaseHeaders: true
-            }, function(err, result) {
-                if (err) {
-                    res.json({ error_code: 1, err_desc: err, data: null });
-                    return 
-                }
-                let jsonToWrite = JSON.stringify(formatJson(result),null, 2); //Serialie JSON String to redable form
-                
-                //Write formatted json to file data.json 
-                fs.writeFile('data.json', jsonToWrite, (err) =>{
-                	if(err){
-                		res.json({error_code: 1, err_desc: err});
-                		return;
-                	}
-                	res.json({error_code: 0, desc: "JSON file written success!!"})
-                })
-            });
-        } catch (e) {
-            res.json({ error_code: 1, err_desc: "Corupted excel file" });
-        }
 
         //Delete the file after conversion success or failed
-        try{
-        	fs.unlinkSync(req.file.path);
-        } catch(e){
-        	console.log("Couldn't delete the file");
+        try {
+            fs.unlinkSync(req.file.path);
+        } catch (e) {
+            console.log("Couldn't delete the file");
         }
     })
 });
