@@ -139,7 +139,21 @@ app.get('/api/data', function(req, res) {
         if (err) {
         	res.json({error_code: 1, err_desc: err})
         }
-        res.json(JSON.parse(data));
+        let filteredData = JSON.parse(data);
+        //Filter by metric
+        if(req.query.metric){
+        	filteredData =  filteredData.filter((dt) => dt.metric === req.query.metric);
+        }
+
+        //Filter by keyfigure
+        if(req.query.keyfigure){
+        	filteredData.forEach((fd) =>{
+        	fd.values = fd.values.filter((value) => {
+        		return value.keyFigure === req.query.keyfigure;
+        	})
+        });
+        }	 
+        res.json(filteredData);
     });
 });
 
