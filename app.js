@@ -8,6 +8,8 @@ var csvToJson = require('convert-csv-to-json');
 app.use(bodyParser.json());
 
 const fs = require('fs');
+const dotenv = require('dotenv').config();
+const admin = require('./firebase/admin');
 
 //Disk Storage configuration for multer
 var storage = multer.diskStorage({
@@ -62,8 +64,27 @@ const formatJson = (jsonData) => {
     return formattedData;
 }
 
+//Verify the token from firebase client
+async function verifyToken(req, res, next){
+	const idToken = req.headers.authorization;
+
+	try{
+		const decodedToken = await admin.auth().verifyIdToken(idToken);
+		if(decodedToken) {
+			req.body.uid = decodedToken.uid;
+			return next();
+		} else {
+			return res.status(401).send('You are not authorized!');
+		}
+
+	} catch (e){
+		console.log(e);
+		return res.status(401).send('You are not authorized');
+	}
+}
+
 //API endpoint to upload file
-app.post('/upload', function(req, res) {
+app.post('/upload',function(req, /*verifyToken,*/ res) {
     upload(req, res, function(err) {
         if (err) {
             res.json({ error_code: 1, err_desc: err });
@@ -134,7 +155,7 @@ app.post('/upload', function(req, res) {
 });
 
 //API Endpoint to get data
-app.get('/api/data', function(req, res) {
+app.get('/api/data', /*verifyToken,*/ function(req, res) {
     fs.readFile('data.json', (err, data) => {
         if (err) {
         	res.json({error_code: 1, err_desc: err})
